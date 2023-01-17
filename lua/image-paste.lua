@@ -29,9 +29,7 @@ function M.paste_image()
   -- Inserrt the upload template
   local buffer = api.nvim_get_current_buf()
   local row, col = unpack(api.nvim_win_get_cursor(0))
-  local line = api.nvim_get_current_line()
-  local nline = line:sub(0, col) .. placeholder .. " " .. line:sub(col + 1)
-  api.nvim_set_current_line(nline)
+  api.nvim_buf_set_text(buffer, row - 1, col, row - 1, col, { placeholder })
   api.nvim_win_set_cursor(0, { row, col + placeholder:len() + 1 })
 
   -- Mark the location of the template for replacing later
