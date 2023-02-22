@@ -13,11 +13,10 @@ local options = {
 
   -- The name of the image in the alt attribute
   image_name = "clipboard.png",
-
-  -- When high_dpi is set to true the image width will be halved so that image
-  -- looks correct when rendered
-  high_dpi = true,
 }
+
+-- PPI that is considered HDPI
+local high_ppi = 72 * 2
 
 function M.paste_image()
   local template_md = "![%s](%s)"
@@ -42,20 +41,26 @@ function M.paste_image()
     { end_col = col + placeholder:len(), hl_group = "Whitespace" }
   )
 
-  -- Determine the image width
+  -- Determine the image width and PPI
   -- This command will execute quite quick, so we don't need to worry too much
   -- about it returning after the upload is complete
   local width = nil
-  local get_width_command =
-    string.format("%s | identify -ping -format '%%w' -", options.paste_script)
+  local is_hdpi = false
+
+  local get_width_command = string.format(
+    "%s | identify -ping -units PixelsPerInch -format '%%w,%%x' -",
+    options.paste_script
+  )
 
   fn.jobstart(get_width_command, {
     stdout_buffered = true,
     on_stdout = function(_, data)
-      width = tonumber(fn.join(data), 10)
+      local str_width, str_ppi = unpack(vim.split(fn.join(data), ","))
+      local ppi = tonumber(str_ppi, 10)
+      width = tonumber(str_width, 10)
 
-      -- Adjust the width for high_dpi (just halve it)
-      if width ~= nil and options.high_dpi then
+      if width ~= nil and ppi == high_ppi then
+        is_hdpi = true
         width = width / 2
       end
     end,
@@ -89,7 +94,11 @@ function M.paste_image()
 
       -- Create the HTML replacement string
       if not failed then
-        replacement = string.format(template_html, options.image_name, width, url)
+        if is_hdpi and width ~= nil then
+          replacement = string.format(template_html, options.image_name, width, url)
+        else
+          replacement = string.format(template_md, options.image_name, url)
+        end
       else
         print("Failed to upload or paste image")
       end
